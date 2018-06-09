@@ -22,14 +22,15 @@ int main(int argc, char** argv)
     const unsigned int scaler = 600; // Set one you wish
 	auto [window_w, window_h] = get_merged_size(input[0].size(), scaler);
 
-	cv::Mat sharp = focus_stack(input);
 	cv::Mat gray_depth_scale = depth_map_grayscale(input);
+    cv::Mat sharp = focus_stack_laplacian(input);
     cv::Mat merged_output = merge_images(sharp, gray_depth_scale);
+    (void)merged_output;
 
 	cv::namedWindow(window_name.c_str(), cv::WINDOW_NORMAL);
 	cv::resizeWindow(window_name.c_str(), window_w, window_h);
 
-	cv::imshow(window_name.c_str(), merged_output);
+	cv::imshow(window_name.c_str(), sharp);
 
 	cv::waitKey(0);
 }

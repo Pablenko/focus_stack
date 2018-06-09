@@ -1,5 +1,5 @@
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_FLAGS "-Wall -pedantic -Wextra -Werror -g")
+set(CMAKE_CXX_FLAGS "-Wall -pedantic -Wextra -g")
 set(APPLICATION_NAME image_magic)
 
 find_package(OpenCV REQUIRED)
