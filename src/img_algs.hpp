@@ -24,8 +24,10 @@ short int get_kernel_sum(const cv::Mat& in, const kernel<3>& k, unsigned int h, 
 
 cv::Mat focus_stack_average_method(const std::vector<cv::Mat>& in);
 
-cv::Mat focus_stack_laplacian(const std::vector<cv::Mat>& in);
+std::vector<cv::Mat> detect_edges(const std::vector<cv::Mat>& in);
 
-cv::Mat depth_map_grayscale(cv::Mat& in);
+cv::Mat focus_stack_laplacian(const std::vector<cv::Mat>& in, const std::vector<cv::Mat>& edges);
+
+cv::Mat depth_map(const std::vector<cv::Mat>& in);
 
 #endif

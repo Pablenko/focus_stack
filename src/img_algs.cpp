@@ -189,10 +189,8 @@ cv::Mat convert(const cv::Mat& in)
     return r;
 }
 
-cv::Mat focus_stack_laplacian(const std::vector<cv::Mat>& in)
+std::vector<cv::Mat> detect_edges(const std::vector<cv::Mat>& in)
 {
-    cv::Size size = in[0].size();
-    cv::Mat result(size, CV_8UC3);
     std::vector<cv::Mat> edges;
 
     for(const auto& elem : in)
@@ -204,6 +202,14 @@ cv::Mat focus_stack_laplacian(const std::vector<cv::Mat>& in)
         mat_abs(gray_scale);
         edges.push_back(gray_scale);
     }
+
+    return edges;
+}
+
+cv::Mat focus_stack_laplacian(const std::vector<cv::Mat>& in, const std::vector<cv::Mat>& edges)
+{
+    cv::Size size = in[0].size();
+    cv::Mat result(size, CV_8UC3);
 
     for(auto i = 0; i < size.height; i++)
     {
@@ -217,7 +223,26 @@ cv::Mat focus_stack_laplacian(const std::vector<cv::Mat>& in)
     return result;
 }
 
-cv::Mat depth_map_grayscale(cv::Mat& in)
+cv::Mat depth_map(const std::vector<cv::Mat>& edges)
 {
-    return in;
+    cv::Size size = edges[0].size();
+    cv::Mat result(size, CV_8UC1, cv::Scalar(0));
+    const int threshold = 12;
+    int scaler = edges.size() * 2;
+
+    for(auto i = 0; i < edges.size(); i++, scaler -= 2)
+    {
+        for(auto h = 0; h < size.height; h++)
+        {
+            for(auto w = 0; w < size.width; w++)
+            {
+                if(edges[i].at<short int>(h, w) > threshold)
+                {
+                    result.at<unsigned char>(h, w) = edges[i].at<short int>(h, w) * scaler;
+                }
+            }
+        }
+    }
+
+    return result;
 }

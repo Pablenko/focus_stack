@@ -22,12 +22,17 @@ int main(int argc, char** argv)
     const unsigned int scaler = 600; // Set one you wish
 	auto [window_w, window_h] = get_merged_size(input[0].size(), scaler);
 
-	cv::Mat sharp = focus_stack_laplacian(input);
+	std::vector<cv::Mat> edges = detect_edges(input);
+
+	cv::Mat sharp = focus_stack_laplacian(input, edges);
+	cv::Mat map = depth_map(edges);
 
 	cv::namedWindow(window_name.c_str(), cv::WINDOW_NORMAL);
 	cv::resizeWindow(window_name.c_str(), window_w, window_h);
 
 	cv::imshow(window_name.c_str(), sharp);
+	cv::waitKey(0);
 
+	cv::imshow(window_name.c_str(), map);
 	cv::waitKey(0);
 }
