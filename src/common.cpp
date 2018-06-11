@@ -36,9 +36,9 @@ std::vector<cv::Mat> read_imgs(const std::string& path)
 	return imgs;
 }
 
-cv::Mat merge_images(const cv::Mat& first, const cv::Mat& second)
+cv::Mat merge_images(const cv::Mat& first, const cv::Mat& second, int type)
 {
-	cv::Mat result(first.size().height, first.size().width + second.size().width, CV_8UC3);
+	cv::Mat result(first.size().height, first.size().width + second.size().width, type);
     cv::Mat left(result, cv::Rect(0, 0, first.size().width, first.size().height));
     first.copyTo(left);
     cv::Mat right(result, cv::Rect(first.size().width, 0, second.size().width, second.size().height));

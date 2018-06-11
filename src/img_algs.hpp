@@ -26,6 +26,6 @@ cv::Mat focus_stack_average_method(const std::vector<cv::Mat>& in);
 
 cv::Mat focus_stack_laplacian(const std::vector<cv::Mat>& in);
 
-cv::Mat depth_map_grayscale(const std::vector<cv::Mat>& in);
+cv::Mat depth_map_grayscale(cv::Mat& in);
 
 #endif

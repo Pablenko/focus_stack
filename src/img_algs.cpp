@@ -112,10 +112,10 @@ static void gaussian_blur(cv::Mat& in)
     apply_kernel_3_3(in, gaussian_kernel);
 }
 
-static cv::Mat rgb_2_grayscale(const cv::Mat& in)
+static cv::Mat rgb_2_grayscale(const cv::Mat& in, int type)
 {
     cv::Size size = in.size();
-    cv::Mat result(size, CV_16SC1);
+    cv::Mat result(size, type);
     const float b_weight = 0.11;
     const float g_weight = 0.59;
     const float r_weight = 0.3;
@@ -199,7 +199,7 @@ cv::Mat focus_stack_laplacian(const std::vector<cv::Mat>& in)
     {
         cv::Mat m = elem.clone();
         gaussian_blur(m);
-        cv::Mat gray_scale = rgb_2_grayscale(m);
+        cv::Mat gray_scale = rgb_2_grayscale(m, CV_16SC1);
         laplacian(gray_scale);
         mat_abs(gray_scale);
         edges.push_back(gray_scale);
@@ -217,7 +217,7 @@ cv::Mat focus_stack_laplacian(const std::vector<cv::Mat>& in)
     return result;
 }
 
-cv::Mat depth_map_grayscale(const std::vector<cv::Mat>& in)
+cv::Mat depth_map_grayscale(cv::Mat& in)
 {
-	return in[0].clone();
+    return in;
 }
