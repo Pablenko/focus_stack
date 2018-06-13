@@ -9,8 +9,8 @@
 
 std::vector<cv::Mat> read_imgs(const std::string& path);
 
-cv::Mat merge_images(const cv::Mat& first, const cv::Mat& second, int type);
+std::tuple<unsigned int, unsigned int> get_window_size(cv::Size size, float scaler);
 
-std::tuple<unsigned int, unsigned int> get_merged_size(cv::Size size, unsigned int scaler);
+void save_images(const std::string& path, const cv::Mat& sharp, const cv::Mat& depth_map);
 
 #endif

@@ -3,28 +3,28 @@
 
 static cv::Vec3b average(const std::vector<cv::Mat>& in, unsigned int i, unsigned int j)
 {
-	unsigned int a1 = 0;
-	unsigned int a2 = 0;
-	unsigned int a3 = 0;
+    unsigned int a1 = 0;
+    unsigned int a2 = 0;
+    unsigned int a3 = 0;
 
-	for(const auto& e : in)
-	{
-		a1 += e.at<cv::Vec3b>(i, j)[0];
-		a2 += e.at<cv::Vec3b>(i, j)[1];
-		a3 += e.at<cv::Vec3b>(i, j)[2];
-	}
+    for(const auto& e : in)
+    {
+        a1 += e.at<cv::Vec3b>(i, j)[0];
+        a2 += e.at<cv::Vec3b>(i, j)[1];
+        a3 += e.at<cv::Vec3b>(i, j)[2];
+    }
 
-	a1 /= in.size();
-	a2 /= in.size();
-	a3 /= in.size();
+    a1 /= in.size();
+    a2 /= in.size();
+    a3 /= in.size();
 
-	return {static_cast<unsigned char>(a1), static_cast<unsigned char>(a2), static_cast<unsigned char>(a3)};
+    return {static_cast<unsigned char>(a1), static_cast<unsigned char>(a2), static_cast<unsigned char>(a3)};
 }
 
 cv::Mat focus_stack_average_method(const std::vector<cv::Mat>& in)
 {
-	cv::Size elem_size = in[0].size(); // assume all images have same size
-	cv::Mat result(elem_size, CV_8UC3);
+    cv::Size elem_size = in[0].size(); // assume all images have same size
+    cv::Mat result(elem_size, CV_8UC3);
 
     for(auto i = 0; i < elem_size.height; i++)
     {
@@ -34,22 +34,22 @@ cv::Mat focus_stack_average_method(const std::vector<cv::Mat>& in)
         }
     }
 
-	return result;
+    return result;
 }
 
 unsigned char get_kernel_sum_n_chan(const cv::Mat& in, const kernel<3>& k, unsigned int channel_num, unsigned int h, unsigned int w)
 {
-	unsigned char result = 0;
+    unsigned char result = 0;
 
-	for(int i = 0, w_offset = -1; i < 3; i++, w_offset++)
-	{
-		for(int j = 0, h_offset = -1; j < 3; j++, h_offset++)
-		{
-			float kernel_weigth = k(i, j);
-			unsigned char val = in.at<cv::Vec3b>(h+h_offset, w+w_offset)[channel_num];
+    for(int i = 0, w_offset = -1; i < 3; i++, w_offset++)
+    {
+        for(int j = 0, h_offset = -1; j < 3; j++, h_offset++)
+        {
+            float kernel_weigth = k(i, j);
+            unsigned char val = in.at<cv::Vec3b>(h+h_offset, w+w_offset)[channel_num];
             result += kernel_weigth * val;
-		}
-	}
+        }
+    }
 
     return result;
 }
@@ -125,8 +125,8 @@ static cv::Mat rgb_2_grayscale(const cv::Mat& in, int type)
         for(auto j = 0; j < size.width; j++)
         {
             short int gray_value = b_weight * in.at<cv::Vec3b>(i, j)[0] +
-	                               g_weight * in.at<cv::Vec3b>(i, j)[1] +
-	                               r_weight * in.at<cv::Vec3b>(i, j)[2];
+                                   g_weight * in.at<cv::Vec3b>(i, j)[1] +
+                                   r_weight * in.at<cv::Vec3b>(i, j)[2];
             result.at<short int>(i, j) = gray_value;
         }
     }
@@ -136,11 +136,11 @@ static cv::Mat rgb_2_grayscale(const cv::Mat& in, int type)
 
 static void laplacian(cv::Mat& in)
 {
-	const unsigned int kernel_size = 3;
+    const unsigned int kernel_size = 3;
 
-	kernel<kernel_size> laplacian_kernel = {0, 1, 0, 1, -4, 1, 0, 1, 0};
+    kernel<kernel_size> laplacian_kernel = {0, 1, 0, 1, -4, 1, 0, 1, 0};
 
-	apply_kernel_3_1(in, laplacian_kernel);
+    apply_kernel_3_1(in, laplacian_kernel);
 }
 
 static void mat_abs(cv::Mat& in)
