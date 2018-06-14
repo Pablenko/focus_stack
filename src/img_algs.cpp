@@ -1,43 +1,23 @@
-#include "img_algs.hpp"
+#include <cmath>
 #include <iostream>
 
-static cv::Vec3b average(const std::vector<cv::Mat>& in, unsigned int i, unsigned int j)
+#include "img_algs.hpp"
+
+namespace 
 {
-    unsigned int a1 = 0;
-    unsigned int a2 = 0;
-    unsigned int a3 = 0;
 
-    for(const auto& e : in)
-    {
-        a1 += e.at<cv::Vec3b>(i, j)[0];
-        a2 += e.at<cv::Vec3b>(i, j)[1];
-        a3 += e.at<cv::Vec3b>(i, j)[2];
-    }
-
-    a1 /= in.size();
-    a2 /= in.size();
-    a3 /= in.size();
-
-    return {static_cast<unsigned char>(a1), static_cast<unsigned char>(a2), static_cast<unsigned char>(a3)};
-}
-
-cv::Mat focus_stack_average_method(const std::vector<cv::Mat>& in)
+struct kernel
 {
-    cv::Size elem_size = in[0].size(); // assume all images have same size
-    cv::Mat result(elem_size, CV_8UC3);
-
-    for(auto i = 0; i < elem_size.height; i++)
+    static const unsigned int size = 3;
+    float params[size][size];
+ 
+    float operator()(int i, int j) const
     {
-        for(auto j = 0; j < elem_size.width; j++)
-        {
-            result.at<cv::Vec3b>(i, j) = average(in, i, j);
-        }
+        return params[i][j];
     }
+};
 
-    return result;
-}
-
-unsigned char get_kernel_sum_n_chan(const cv::Mat& in, const kernel<3>& k, unsigned int channel_num, unsigned int h, unsigned int w)
+unsigned char get_kernel_sum_n_chan(const cv::Mat& in, const kernel& k, unsigned int channel_num, unsigned int h, unsigned int w)
 {
     unsigned char result = 0;
 
@@ -54,7 +34,7 @@ unsigned char get_kernel_sum_n_chan(const cv::Mat& in, const kernel<3>& k, unsig
     return result;
 }
 
-short int get_kernel_sum(const cv::Mat& in, const kernel<3>& k, unsigned int h, unsigned int w)
+short int get_kernel_sum(const cv::Mat& in, const kernel& k, unsigned int h, unsigned int w)
 {
     short int result = 0;
 
@@ -71,15 +51,15 @@ short int get_kernel_sum(const cv::Mat& in, const kernel<3>& k, unsigned int h, 
     return result;
 }
 
-void apply_kernel_3_3(cv::Mat& in, const kernel<3>& k)
+void apply_kernel_3_ch(cv::Mat& in, const kernel& k)
 {
-    cv::Size in_size = in.size();
-    const unsigned int offset = 1;
-    cv::Mat calc = in.clone();
+    const cv::Size in_size = in.size();
+    const int offset = 1;
+    const cv::Mat calc = in.clone();
 
-    for(auto i = offset; i < in_size.height - offset; i++)
+    for(int i = offset; i < in_size.height - offset; i++)
     {
-        for(auto j = offset; j < in_size.width - offset; j++)
+        for(int j = offset; j < in_size.width - offset; j++)
         {
             in.at<cv::Vec3b>(i, j)[0] = get_kernel_sum_n_chan(calc, k, 0, i, j);
             in.at<cv::Vec3b>(i, j)[1] = get_kernel_sum_n_chan(calc, k, 1, i, j);
@@ -88,41 +68,107 @@ void apply_kernel_3_3(cv::Mat& in, const kernel<3>& k)
     }
 }
 
-void apply_kernel_3_1(cv::Mat& in, const kernel<3>& k)
-{
-    cv::Size in_size = in.size();
-    const unsigned int offset = 1;
-    cv::Mat calc = in.clone();
+void apply_kernel(cv::Mat& in, const kernel& k)
+{   
+    const int offset = 1;
+    const cv::Size in_size = in.size();
+    const cv::Mat calc = in.clone();
 
-    for(auto i = offset; i < in_size.height - offset; i++)
+    for(int i = offset; i < in_size.height - offset; i++)
     {
-        for(auto j = offset; j < in_size.width - offset; j++)
+        for(int j = offset; j < in_size.width - offset; j++)
         {
             in.at<short int>(i, j) = get_kernel_sum(calc, k, i, j);
         }
     }
 }
 
-static void gaussian_blur(cv::Mat& in)
+void mat_abs(cv::Mat& in)
 {
-    const unsigned int kernel_size = 3;
+    const cv::Size size = in.size();
 
-    kernel<kernel_size> gaussian_kernel = {0.077847, 0.123317, 0.077847, 0.123317, 0.195346, 0.123317, 0.077847, 0.123317, 0.077847};
-
-    apply_kernel_3_3(in, gaussian_kernel);
+    for(int i = 0; i < size.height; i++)
+    {
+        for(int j = 0; j < size.width; j++)
+        {
+            in.at<short int>(i, j) = std::abs(in.at<short int>(i, j));
+        }
+    }
 }
 
-static cv::Mat rgb_2_grayscale(const cv::Mat& in, int type)
+int get_max_index(const std::vector<cv::Mat>& edges, int h, int w)
 {
-    cv::Size size = in.size();
-    cv::Mat result(size, type);
+    int max_value = 0, idx = 0;
+
+    for(unsigned int i = 0; i < edges.size(); i++)
+    {
+        int cur_value = edges[i].at<short int>(h, w);
+        if(cur_value > max_value)
+        {
+            max_value = cur_value;
+            idx = i;
+        }
+    }
+
+    return idx;
+}
+
+int get_max_block_index(const std::vector<cv::Mat>& edges, int h, int w)
+{
+    const kernel sum_kernel = {1, 1, 1, 1, 1, 1, 1, 1, 1};
+
+    int max_value = 0, idx = 0;
+
+    for(unsigned int i = 0; i < edges.size(); i++)
+    {
+        int cur_value = get_kernel_sum(edges[i], sum_kernel, h, w);
+        if(cur_value > max_value)
+        {
+            max_value = cur_value;
+            idx = i;
+        }
+    }
+
+    return idx;
+}
+
+void fill_borders(const std::vector<cv::Mat>& in, const std::vector<cv::Mat>& edges, cv::Mat& result)
+{
+    const cv::Size size = result.size();
+
+    for(int i = 0; i < size.height; i+=size.height-1)
+    {
+        for(int j = 0; j < size.width; j++)
+        {
+            int idx = get_max_index(edges, i, j);
+            result.at<cv::Vec3b>(i, j) = in[idx].at<cv::Vec3b>(i, j);
+        }
+    }
+
+    for(int i = 0; i < size.width; i+=size.width-1)
+    {
+        for(int j = 0; j < size.height; j++)
+        {
+            int idx = get_max_index(edges, j, i);
+            result.at<cv::Vec3b>(j, i) = in[idx].at<cv::Vec3b>(j, i);
+        }
+    }
+}
+
+} //unnamed namespace
+
+cv::Mat rgb_2_grayscale(const cv::Mat& in, int type)
+{  
     const float b_weight = 0.11;
     const float g_weight = 0.59;
     const float r_weight = 0.3;
+    const cv::Size size = in.size();
 
-    for(auto i = 0; i < size.height; i++)
+    cv::Mat result(size, type);
+
+    for(int i = 0; i < size.height; i++)
     {
-        for(auto j = 0; j < size.width; j++)
+        for(int j = 0; j < size.width; j++)
         {
             short int gray_value = b_weight * in.at<cv::Vec3b>(i, j)[0] +
                                    g_weight * in.at<cv::Vec3b>(i, j)[1] +
@@ -134,75 +180,21 @@ static cv::Mat rgb_2_grayscale(const cv::Mat& in, int type)
     return result;
 }
 
-static void laplacian(cv::Mat& in)
+
+void gaussian_blur(cv::Mat& in)
 {
-    const unsigned int kernel_size = 3;
+    const kernel gaussian_kernel = {0.077847, 0.123317, 0.077847,
+                                    0.123317, 0.195346, 0.123317,
+                                    0.077847, 0.123317, 0.077847};
 
-    kernel<kernel_size> laplacian_kernel = {0, 1, 0, 1, -4, 1, 0, 1, 0};
-
-    apply_kernel_3_1(in, laplacian_kernel);
+    apply_kernel_3_ch(in, gaussian_kernel);
 }
 
-static void mat_abs(cv::Mat& in)
+void laplacian(cv::Mat& in)
 {
-    cv::Size size = in.size();
-    auto abs = [](short int i) -> short int { if(i < 0) {return -i;} else {return i;} };
+    const kernel laplacian_kernel = {-1, -1, -1, -1, 8, -1, -1, -1, -1};
 
-    for(auto i = 0; i < size.height; i++)
-    {
-        for(auto j = 0; j < size.width; j++)
-        {
-            in.at<short int>(i, j) = abs(in.at<short int>(i, j));
-        }
-    }
-}
-
-static int sum_block(const cv::Mat& in, int h, int w, int block_size)
-{
-    int result = 0;
-
-    for(int i = 0; i < block_size; i++)
-    {
-        for(int j = 0; j < block_size; j++)
-        {
-            result += in.at<short int>(h+i, w+j);
-        }
-    }
-
-    return result;
-}
-
-static int get_max_block_index(const std::vector<cv::Mat>& edges, int h, int w, int block_size)
-{
-    int thresh = 5;
-    int max_value = thresh * block_size, idx = -1; // block_size * thres is threshold for detecting any edge
-
-    for(unsigned int i = 0; i < edges.size(); i++)
-    {
-        int cur_value = sum_block(edges[i], h, w, block_size);
-        if(cur_value > max_value)
-        {
-            max_value = cur_value;
-            idx = i;
-        }
-    }
-
-    return idx;
-}
-
-cv::Mat convert(const cv::Mat& in)
-{
-    cv::Mat r(in.size(), CV_8UC1);
-
-    for(int i = 0; i < in.size().height; i++)
-    {
-        for(int j =0; j < in.size().width; j++)
-        {
-            r.at<unsigned char>(i, j) = in.at<short int>(i, j);
-        }
-    }
-
-    return r;
+    apply_kernel(in, laplacian_kernel);
 }
 
 std::vector<cv::Mat> detect_edges(const std::vector<cv::Mat>& in)
@@ -224,31 +216,18 @@ std::vector<cv::Mat> detect_edges(const std::vector<cv::Mat>& in)
 
 cv::Mat focus_stack_laplacian(const std::vector<cv::Mat>& in, const std::vector<cv::Mat>& edges)
 {
-    const int block_size = 2;
-    cv::Size size = in[0].size();
-
-    const int height = (size.height / block_size) * block_size;
-    const int width = (size.width / block_size) * block_size;
+    const cv::Size size = in[0].size();
 
     cv::Mat result(size, CV_8UC3, cv::Scalar(0, 0, 0));
-    cv::Mat neighbours(size, CV_8SC1, cv::Scalar(-1));
 
-    int last_idx = 0;
+    fill_borders(in, edges, result);
 
-    for(auto i = 0; i < height; i+=1)
+    for(int i = 1; i < size.height - 1; i+=1)
     {
-        for(auto j = 0; j < width; j+=1)
+        for(int j = 1; j < size.width - 1; j+=1)
         {
-            int idx = get_max_block_index(edges, i, j, block_size);
-            if(idx > 0)
-            {
-                last_idx = idx;
-                result.at<cv::Vec3b>(i, j) = in[idx].at<cv::Vec3b>(i, j);
-            }
-            else
-            {
-                result.at<cv::Vec3b>(i, j) = in[last_idx].at<cv::Vec3b>(i, j);
-            }
+            int idx = get_max_block_index(edges, i, j);
+            result.at<cv::Vec3b>(i, j) = in[idx].at<cv::Vec3b>(i, j);
         }
     }
 
@@ -257,25 +236,25 @@ cv::Mat focus_stack_laplacian(const std::vector<cv::Mat>& in, const std::vector<
 
 cv::Mat depth_map(const std::vector<cv::Mat>& edges)
 {
-    const int detection_threshold = 12;
+    const int detection_threshold = 22; // arbitrary chosen value to get rid of noise
     const int max_pixel_value = 255;
-    const int min_pixel_value = 10;
+    const int min_pixel_value = 0;
+    const cv::Size size = edges[0].size();
 
-    cv::Size size = edges[0].size();
     cv::Mat result(size, CV_8UC1, cv::Scalar(0));
     int scale_step = (max_pixel_value - min_pixel_value) / edges.size();
 
-    for(auto i = 0, scaler = max_pixel_value; i < edges.size(); i++, scaler -= scale_step)
+    for(unsigned int i = 0, scaler = max_pixel_value - scale_step; i < edges.size(); i++, scaler -= scale_step)
     {
-        for(auto h = 0; h < size.height; h++)
+        for(int h = 0; h < size.height; h++)
         {
-            for(auto w = 0; w < size.width; w++)
+            for(int w = 0; w < size.width; w++)
             {
                 if(edges[i].at<short int>(h, w) > detection_threshold)
                 {
                     if(result.at<unsigned char>(h, w) == 0) // Dont overwrite earlier detection
                     {
-                        result.at<unsigned char>(h, w) = scaler;
+                        result.at<unsigned char>(h, w) = static_cast<unsigned char>(scaler + (edges[i].at<short int>(h, w) / scale_step));
                     }
                 }
             }
