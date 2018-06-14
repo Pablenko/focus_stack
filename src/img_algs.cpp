@@ -157,13 +157,29 @@ static void mat_abs(cv::Mat& in)
     }
 }
 
-static unsigned int get_max_pixel_index(const std::vector<cv::Mat>& edges, unsigned int h, unsigned int w)
+static int sum_block(const cv::Mat& in, int h, int w, int block_size)
 {
-    short int max_value = 0, idx = 0;
+    int result = 0;
+
+    for(int i = 0; i < block_size; i++)
+    {
+        for(int j = 0; j < block_size; j++)
+        {
+            result += in.at<short int>(h+i, w+j);
+        }
+    }
+
+    return result;
+}
+
+static int get_max_block_index(const std::vector<cv::Mat>& edges, int h, int w, int block_size)
+{
+    int thresh = 5;
+    int max_value = thresh * block_size, idx = -1; // block_size * thres is threshold for detecting any edge
 
     for(unsigned int i = 0; i < edges.size(); i++)
     {
-        auto cur_value = edges[i].at<short int>(h, w);
+        int cur_value = sum_block(edges[i], h, w, block_size);
         if(cur_value > max_value)
         {
             max_value = cur_value;
@@ -208,15 +224,31 @@ std::vector<cv::Mat> detect_edges(const std::vector<cv::Mat>& in)
 
 cv::Mat focus_stack_laplacian(const std::vector<cv::Mat>& in, const std::vector<cv::Mat>& edges)
 {
+    const int block_size = 2;
     cv::Size size = in[0].size();
-    cv::Mat result(size, CV_8UC3);
 
-    for(auto i = 0; i < size.height; i++)
+    const int height = (size.height / block_size) * block_size;
+    const int width = (size.width / block_size) * block_size;
+
+    cv::Mat result(size, CV_8UC3, cv::Scalar(0, 0, 0));
+    cv::Mat neighbours(size, CV_8SC1, cv::Scalar(-1));
+
+    int last_idx = 0;
+
+    for(auto i = 0; i < height; i+=1)
     {
-        for(auto j = 0; j < size.width; j++)
+        for(auto j = 0; j < width; j+=1)
         {
-            auto idx = get_max_pixel_index(edges, i, j);
-            result.at<cv::Vec3b>(i, j) = in[idx].at<cv::Vec3b>(i, j);
+            int idx = get_max_block_index(edges, i, j, block_size);
+            if(idx > 0)
+            {
+                last_idx = idx;
+                result.at<cv::Vec3b>(i, j) = in[idx].at<cv::Vec3b>(i, j);
+            }
+            else
+            {
+                result.at<cv::Vec3b>(i, j) = in[last_idx].at<cv::Vec3b>(i, j);
+            }
         }
     }
 
@@ -225,20 +257,26 @@ cv::Mat focus_stack_laplacian(const std::vector<cv::Mat>& in, const std::vector<
 
 cv::Mat depth_map(const std::vector<cv::Mat>& edges)
 {
+    const int detection_threshold = 12;
+    const int max_pixel_value = 255;
+    const int min_pixel_value = 10;
+
     cv::Size size = edges[0].size();
     cv::Mat result(size, CV_8UC1, cv::Scalar(0));
-    const int threshold = 12;
-    int scaler = edges.size() * 2;
+    int scale_step = (max_pixel_value - min_pixel_value) / edges.size();
 
-    for(auto i = 0; i < edges.size(); i++, scaler -= 2)
+    for(auto i = 0, scaler = max_pixel_value; i < edges.size(); i++, scaler -= scale_step)
     {
         for(auto h = 0; h < size.height; h++)
         {
             for(auto w = 0; w < size.width; w++)
             {
-                if(edges[i].at<short int>(h, w) > threshold)
+                if(edges[i].at<short int>(h, w) > detection_threshold)
                 {
-                    result.at<unsigned char>(h, w) = edges[i].at<short int>(h, w) * scaler;
+                    if(result.at<unsigned char>(h, w) == 0) // Dont overwrite earlier detection
+                    {
+                        result.at<unsigned char>(h, w) = scaler;
+                    }
                 }
             }
         }
